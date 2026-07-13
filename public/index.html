@@ -28,8 +28,8 @@ header{padding:1.2rem 2rem 1rem;border-bottom:1px solid var(--border);display:fl
 .logo{font-size:10px;font-family:var(--mono);color:var(--accent);letter-spacing:.18em;text-transform:uppercase;margin-bottom:3px}
 .logo span{color:var(--text3)}
 h1{font-size:16px;font-weight:600;letter-spacing:-.01em}
-#resetBtn{display:none;padding:.38rem 1rem;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit}
-#resetBtn:hover{border-color:var(--text2);color:var(--text)}
+.hdr-btn{display:none;padding:.38rem 1rem;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit}
+.hdr-btn:hover{border-color:var(--text2);color:var(--text)}
 
 #dropZone{margin:3rem 2rem;border:1.5px dashed var(--border2);border-radius:14px;padding:5rem 2rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
 #dropZone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,rgba(124,108,250,.07) 0%,transparent 70%);pointer-events:none}
@@ -188,7 +188,10 @@ footer{margin-top:50px;color:var(--text3);font-size:12px;text-align:center;paddi
 <body>
 <header>
   <div><div class="logo">NEBULOUS<span> // </span>FLEET COMMAND</div><h1>Fleet Loadout Viewer</h1></div>
-  <button id="resetBtn" onclick="resetAll()">&#x21A9; Load different file</button>
+  <div id="headerBtns" style="display:flex;gap:8px">
+    <button id="downloadBtn" class="hdr-btn" onclick="downloadFleetFile()">&#x2B73; Download File</button>
+    <button id="resetBtn" class="hdr-btn" onclick="resetAll()">&#x21A9; Load different file</button>
+  </div>
 </header>
 
 <div id="dropZone" onclick="document.getElementById('fileInput').click()">
@@ -621,7 +624,7 @@ function parseMissileTemplate(mt){
     designation: txt(mt,'Designation') || cleanKey(txt(mt,'SaveKey')),
     nickname: txt(mt,'Nickname') || '',
     cost: txt(mt,'Cost'),
-    body: cleanKey(txt(mt,'BodyKey')),
+    body: cleanKey(txt(mt,'BodyKey')).replace(/\s*Body$/i, ''),
     avionics: parseMissileDesc(txt(mt,'Description')),
     modules: parseMissileModules(mt),
     stages: parsedStats.stages,
@@ -1276,6 +1279,7 @@ async function loadFleetText(text, name){
     FLEET = await parseFleetXML(text, name);
     RAW_FLEET_TEXT = text;
     document.getElementById('resetBtn').style.display='inline-block';
+    document.getElementById('downloadBtn').style.display='inline-block';
     document.getElementById('shareBtnRow').classList.add('show');
     renderFleetView();
     return true;
@@ -1301,12 +1305,27 @@ function handleFiles(fileList){
   reader.readAsText(file, 'utf-8');
 }
 
+function downloadFleetFile(){
+  if(!RAW_FLEET_TEXT || !FLEET) return;
+  var slug = (FLEET.name || 'fleet').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'') || 'fleet';
+  var blob = new Blob([RAW_FLEET_TEXT], { type: 'application/xml' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = slug + '.fleet';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+
 function resetAll(){
   FLEET = null;
   RAW_FLEET_TEXT = null;
   document.getElementById('dropZone').style.display='block';
   document.getElementById('dashboard').style.display='none';
   document.getElementById('resetBtn').style.display='none';
+  document.getElementById('downloadBtn').style.display='none';
   document.getElementById('shareBtnRow').classList.remove('show');
   document.getElementById('fileInput').value='';
   var url = new URL(window.location.href);
