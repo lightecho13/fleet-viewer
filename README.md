@@ -3,11 +3,21 @@
 ## What this is
 - `public/index.html` — the fleet viewer (same tool as before), now with
   a "Share Link" button in addition to "Share as Image".
-- `netlify/functions/upload.js` — stores an uploaded `.fleet` file's raw
+- `netlify/functions/upload.mjs` — stores an uploaded `.fleet` file's raw
   XML in Netlify Blobs under a random ID, returns that ID.
-- `netlify/functions/get.js` — looks up a fleet by ID and returns the raw
+- `netlify/functions/get.mjs` — looks up a fleet by ID and returns the raw
   XML.
 - `netlify.toml` — tells Netlify where the site and functions live.
+
+**Important:** these are written as Netlify Functions **v2** (ES module,
+`export default`, Web `Request`/`Response`). This matters specifically
+because of Netlify Blobs — v1 functions (`exports.handler`, the older
+Lambda-compatible style) do **not** get the Blobs environment
+auto-configured, and calling `getStore()` in one throws "The environment
+has not been configured to use Netlify Blobs." v2 functions get it
+injected automatically, so `getStore('fleets')` just works with zero
+config. If you ever add more functions here, keep them in v2 style for
+the same reason.
 
 ## How sharing works
 1. Someone loads a `.fleet` file in the viewer and clicks **Share Link**.
