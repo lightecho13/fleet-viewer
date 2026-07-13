@@ -22,7 +22,11 @@ ever add more functions here, keep them in v2 style.
 ## How sharing works
 1. Someone loads a `.fleet` file in the viewer and clicks **Share Link**.
 2. The browser POSTs the raw file text to `/.netlify/functions/upload`.
-3. The function saves it to Netlify Blobs and returns a short ID.
+3. The function hashes the content (SHA-256) and checks a small
+   hash→ID index first. If this exact file was shared before, it hands
+   back the existing ID instead of writing a duplicate (and is actually
+   *faster* than a fresh upload, since it skips the write). Otherwise it
+   saves the content under a new random ID and records the hash.
 4. The viewer builds a link like `https://yoursite.netlify.app/?id=AbC123xy`.
 5. Anyone who opens that link: the page reads `?id=` from the URL, calls
    `/.netlify/functions/get?id=...`, and renders the fleet — no local file

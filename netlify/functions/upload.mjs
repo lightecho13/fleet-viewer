@@ -11,6 +11,12 @@ function generateId(len = 9) {
   return id;
 }
 
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function json(status, obj) {
   return new Response(JSON.stringify(obj), {
     status,
@@ -21,13 +27,13 @@ function json(status, obj) {
 // Prefer explicit siteID/token (set as BLOBS_SITE_ID / BLOBS_TOKEN env vars)
 // when present, since automatic environment injection has been unreliable
 // on some deploys. Falls back to zero-config getStore() otherwise.
-function fleetStore() {
+function blobStore(name) {
   const siteID = process.env.BLOBS_SITE_ID;
   const token = process.env.BLOBS_TOKEN;
   if (siteID && token) {
-    return getStore({ name: 'fleets', siteID, token });
+    return getStore({ name, siteID, token });
   }
-  return getStore('fleets');
+  return getStore(name);
 }
 
 export default async (req) => {
@@ -49,7 +55,18 @@ export default async (req) => {
   }
 
   try {
-    const store = fleetStore();
+    const store = blobStore('fleets');
+    const hashStore = blobStore('fleet-hashes');
+
+    // Dedup: if this exact content was uploaded before, hand back the same
+    // link instead of writing a duplicate blob.
+    const hash = await sha256Hex(body);
+    let existingId = null;
+    try { existingId = await hashStore.get(hash); } catch (e) { existingId = null; }
+    if (existingId) {
+      return json(200, { id: existingId, deduped: true });
+    }
+
     let id;
     // Extremely unlikely to collide at this ID length, but check anyway.
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -62,8 +79,9 @@ export default async (req) => {
     await store.set(id, body, {
       metadata: { createdAt: new Date().toISOString(), size: Buffer.byteLength(body, 'utf8') }
     });
+    await hashStore.set(hash, id);
 
-    return json(200, { id });
+    return json(200, { id, deduped: false });
   } catch (err) {
     console.error('upload error', err && err.stack ? err.stack : err);
     return json(500, { error: 'Internal error', detail: String((err && err.message) || err) });
