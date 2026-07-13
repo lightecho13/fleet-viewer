@@ -17,7 +17,10 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  const body = event.body || '';
+  let body = event.body || '';
+  if (event.isBase64Encoded) {
+    body = Buffer.from(body, 'base64').toString('utf8');
+  }
   if (!body.trim()) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Empty body' }) };
   }
@@ -36,7 +39,8 @@ exports.handler = async (event) => {
     // Extremely unlikely to collide at this ID length, but check anyway.
     for (let attempt = 0; attempt < 5; attempt++) {
       id = generateId();
-      const existing = await store.get(id).catch(() => null);
+      let existing = null;
+      try { existing = await store.get(id); } catch (e) { existing = null; }
       if (existing == null) break;
     }
 
@@ -50,7 +54,13 @@ exports.handler = async (event) => {
       body: JSON.stringify({ id })
     };
   } catch (err) {
-    console.error('upload error', err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Internal error' }) };
+    console.error('upload error', err && err.stack ? err.stack : err);
+    // Message is surfaced in the response (not just server logs) so this is
+    // easy to debug from the browser network tab during initial setup.
+    // Consider removing `detail` once things are working if this concerns you.
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal error', detail: String(err && err.message || err) })
+    };
   }
 };

@@ -24,7 +24,10 @@ exports.handler = async (event) => {
       body: data
     };
   } catch (err) {
-    console.error('get error', err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Internal error' }) };
+    console.error('get error', err && err.stack ? err.stack : err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal error', detail: String(err && err.message || err) })
+    };
   }
 };

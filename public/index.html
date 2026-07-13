@@ -1331,8 +1331,12 @@ async function generateShareLink(){
       headers: { 'Content-Type': 'text/plain' },
       body: RAW_FLEET_TEXT
     });
-    if(!res.ok) throw new Error('Upload failed ('+res.status+')');
-    var data = await res.json();
+    var data = null;
+    try{ data = await res.json(); }catch(parseErr){ /* non-JSON error body, e.g. host-level 500 */ }
+    if(!res.ok){
+      var msg = (data && (data.detail || data.error)) || ('HTTP '+res.status);
+      throw new Error(msg);
+    }
     var url = new URL(window.location.href);
     url.search = ''; url.hash = '';
     url.searchParams.set('id', data.id);
