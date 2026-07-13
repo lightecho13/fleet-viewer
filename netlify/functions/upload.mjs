@@ -18,6 +18,18 @@ function json(status, obj) {
   });
 }
 
+// Prefer explicit siteID/token (set as BLOBS_SITE_ID / BLOBS_TOKEN env vars)
+// when present, since automatic environment injection has been unreliable
+// on some deploys. Falls back to zero-config getStore() otherwise.
+function fleetStore() {
+  const siteID = process.env.BLOBS_SITE_ID;
+  const token = process.env.BLOBS_TOKEN;
+  if (siteID && token) {
+    return getStore({ name: 'fleets', siteID, token });
+  }
+  return getStore('fleets');
+}
+
 export default async (req) => {
   if (req.method !== 'POST') {
     return json(405, { error: 'Method Not Allowed' });
@@ -37,7 +49,7 @@ export default async (req) => {
   }
 
   try {
-    const store = getStore('fleets');
+    const store = fleetStore();
     let id;
     // Extremely unlikely to collide at this ID length, but check anyway.
     for (let attempt = 0; attempt < 5; attempt++) {

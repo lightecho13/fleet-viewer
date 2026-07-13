@@ -10,14 +10,14 @@
 - `netlify.toml` — tells Netlify where the site and functions live.
 
 **Important:** these are written as Netlify Functions **v2** (ES module,
-`export default`, Web `Request`/`Response`). This matters specifically
-because of Netlify Blobs — v1 functions (`exports.handler`, the older
-Lambda-compatible style) do **not** get the Blobs environment
-auto-configured, and calling `getStore()` in one throws "The environment
-has not been configured to use Netlify Blobs." v2 functions get it
-injected automatically, so `getStore('fleets')` just works with zero
-config. If you ever add more functions here, keep them in v2 style for
-the same reason.
+`export default`, Web `Request`/`Response`). v2 is supposed to get the
+Blobs environment auto-configured with zero setup — v1 functions
+(`exports.handler`, the older Lambda-compatible style) definitely don't.
+In practice, auto-config has been unreliable on some deploys even with
+v2, so both functions also support an explicit fallback: if you set
+`BLOBS_SITE_ID` and `BLOBS_TOKEN` environment variables (see step 4
+below), they'll be used instead of relying on auto-injection. If you
+ever add more functions here, keep them in v2 style.
 
 ## How sharing works
 1. Someone loads a `.fleet` file in the viewer and clicks **Share Link**.
@@ -37,9 +37,24 @@ the same reason.
    Build settings are already defined in `netlify.toml`
    (publish = `public`, functions = `netlify/functions`), so the
    defaults Netlify detects should just work.
-3. Netlify Blobs needs no manual setup or API keys — it's provisioned
-   automatically per-site.
-4. Deploy. Test by uploading a `.fleet` file and clicking **Share Link**.
+3. Try it first without any extra setup — Netlify Blobs is *supposed* to
+   need zero configuration. If **Share Link** works, you're done.
+4. If you see an error like *"The environment has not been configured to
+   use Netlify Blobs... supply siteID, token"*, set up the explicit
+   fallback:
+   1. Get your Site ID: Netlify dashboard → your site → **Site
+      configuration → General → Site details** → copy the **Site ID**.
+   2. Create a Personal Access Token: click your avatar (top right) →
+      **User settings → Applications → Personal access tokens → New
+      access token**. Give it any name, copy the token (you only see it
+      once).
+   3. In your site: **Site configuration → Environment variables → Add a
+      variable**, add both:
+      - `BLOBS_SITE_ID` = the Site ID from step 1
+      - `BLOBS_TOKEN` = the token from step 2
+   4. Redeploy (env var changes need a new deploy to take effect), then
+      try **Share Link** again.
+5. Test by uploading a `.fleet` file and clicking **Share Link**.
 
 ## Notes / things you may want to add later
 - **No expiration yet** — shared fleets are stored indefinitely. If you
