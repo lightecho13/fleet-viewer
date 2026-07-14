@@ -869,7 +869,7 @@ async function parseFleetXML(xmlText, fallbackName){
   var parser = new DOMParser();
   var doc = parser.parseFromString(xmlText, 'text/xml');
   var errNode = doc.getElementsByTagName('parsererror')[0];
-  if(errNode) throw new Error('XML \ud30c\uc2f1 \uc2e4\ud328');
+  if(errNode) throw new Error('XML parsing failed');
   var root = doc.documentElement;
   var fleet = {
     name: txt(root,'Name') || fallbackName,
@@ -1287,7 +1287,7 @@ async function loadFleetText(text, name){
     console.error('Parse error for', name, err);
     document.getElementById('dropZone').style.display='block';
     document.getElementById('dashboard').style.display='none';
-    alert((name||'\ud30c\uc77c') + '\uc744 \ud30c\uc2f1\ud558\ub294\ub370 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4. Nebulous .fleet \ud30c\uc77c\uc774 \ub9de\ub294\uc9c0 \ud655\uc778\ud574\uc8fc\uc138\uc694.');
+    alert('Failed to parse '+(name||'file')+'. Please check that this is a valid Nebulous .fleet file.');
     return false;
   }
 }
@@ -1297,7 +1297,7 @@ function handleFiles(fileList){
   if(!files.length) return;
   var file = files[0];
   if(!/\.fleet$/i.test(file.name)){
-    alert('.fleet \ud30c\uc77c\ub9cc \uc5c5\ub85c\ub4dc\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.');
+    alert('Only .fleet files can be uploaded.');
     return;
   }
   var reader = new FileReader();
@@ -1364,12 +1364,12 @@ async function generateShareLink(){
     url.searchParams.set('id', data.id);
     document.getElementById('linkResultInput').value = url.toString();
     document.getElementById('linkResultLabel').textContent = data.deduped
-      ? '\uc774 \ud568\ub300\ub294 \uc774\ubbf8 \uacf5\uc720\ub41c \uc801 \uc788\uc5b4\uc694 \u2014 \uae30\uc874 \ub9c1\ud06c\uc785\ub2c8\ub2e4:'
+      ? 'This fleet was already shared before \u2014 here\u2019s the existing link:'
       : 'Anyone with this link can view the fleet:';
     document.getElementById('linkPreArea').style.display='none';
     document.getElementById('linkResultArea').style.display='block';
   }catch(err){
-    alert('\ub9c1\ud06c \uc0dd\uc131\uc5d0 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4: '+err.message);
+    alert('Failed to generate link: '+err.message);
   }
   document.getElementById('linkGenerating').classList.remove('show');
   document.getElementById('linkGenBtn').disabled = false;
@@ -1395,7 +1395,7 @@ async function loadFromShareId(id){
     console.error(err);
     document.getElementById('dropZone').style.display='block';
     document.getElementById('dashboard').style.display='none';
-    alert('\uacf5\uc720\ub41c \ub9c1\ud06c\ub97c \ubd88\ub7ec\uc624\ub294\ub370 \uc2e4\ud328\ud588\uc2b5\ub2c8\ub2e4: '+err.message);
+    alert('Failed to load the shared link: '+err.message);
   }
 }
 
