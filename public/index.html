@@ -321,8 +321,26 @@ function cleanKey(k){
   if(!k) return '';
   k = k.replace(/^\$?[A-Z]+\$?\//,'');
   k = k.replace(/^Stock\//,'');
-  return k.trim();
+  k = k.trim();
+  return COMPONENT_NAME_FIXES[k] || k;
 }
+
+/* Some stock components' saved ComponentName omits the in-game flavor
+   name that the game itself displays (e.g. the file just says "P11
+   PDT" with no name, unlike "Mk20 Defender PDT" which already includes
+   one). Patch the ones we know about. */
+var COMPONENT_NAME_FIXES = {
+  'P11 PDT': "P11 'Pavise' PDT",
+  'P20 PDT': "P20 'Bastion' PDT",
+  'P20 Flak PDT': "P20 'Bastion' PDT",
+  'P60 PDT': "P60 'Grazer' PDT",
+  'E20 Illuminator': "E20 'Lighthouse' Illuminator",
+  'J15 Jammer': "J15 'Bellbird' Jammer",
+  'J360 Jammer': "J360 'Lyrebird' Jammer",
+  'J75 Jammer': "J75 'Warbler' Jammer",
+  'L50 Laser Dazzler': "L50 'Blackjack' Laser Dazzler",
+  'R400 Radar': "R400 'Bloodhound' LRT Radar"
+};
 
 function decodeGameText(s){
   if(!s) return '';
@@ -349,7 +367,7 @@ function decodeGameText(s){
    (e.g. "Direct · CMD/SAH(RADAR) · HE"). */
 function parseMissileDesc(desc){
   if(!desc) return '';
-  var colorMap={'#3BC81E':'#3ecf8e','#D4211D':'#e85c4a','#7CC6BC':'#7CC6BC','#D3D11F':'#f5d020'};
+  var colorMap={'#3BC81E':'#3ecf8e','#D4211D':'#e85c4a','#ED211D':'#e85c4a','#7CC6BC':'#7CC6BC','#D3D11F':'#f5d020'};
   var gm={'$MISSILEGUIDANCE_MODE_DIRECT':'Direct','$MISSILEGUIDANCE_MODE_CRUISE':'Cruise','DIRECT':'Direct','CRUISE':'Cruise'};
   var sm={'$MISSILESEEKER_MODE_ACTIVE_ABBREV':'ACT','$MISSILESEEKER_MODE_ARAD_HOJ_ABBREV':'HOJ',
           '$MISSILESEEKER_MODE_PASSIVE_ABBREV':'PSV','$MISSILESEEKER_MODE_COMMAND_ABBREV':'CMD',
@@ -360,19 +378,26 @@ function parseMissileDesc(desc){
           '$MISSILEWARHEAD_SHORT_HEKP':'HEKP'};
   var raw = desc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
   function parseToken(token, isVal){
-    var seekerColorMatch=token.match(/<color=(#[0-9A-Fa-f]+)>[^$]*(\$MISSILESEEKER[^<]*)<\/color>/);
+    var parenIdx = token.indexOf('(');
+    var beforePart = parenIdx>=0 ? token.slice(0, parenIdx) : token;
+    var parenPart = parenIdx>=0 ? token.slice(parenIdx) : '';
+    // Only look for a color wrapping the seeker abbreviation itself
+    // *before* the parenthetical — otherwise a sensor override token
+    // that happens to also start with "$MISSILESEEKER" (e.g. THERM's
+    // $MISSILESEEKER_SIGOVERRIDE_ABBREV_THERM) gets mistaken for it.
+    var seekerColorMatch=beforePart.match(/<color=(#[0-9A-Fa-f]+)>[^$]*(\$MISSILESEEKER[^<]*)<\/color>/);
     var seekerColor=seekerColorMatch?(colorMap[seekerColorMatch[1]]||seekerColorMatch[1]):'';
     var abbrev='';
     for(var sk in sm){ if(token.indexOf(sk)>=0){abbrev=sm[sk];break;} }
     if(!abbrev) return '';
     var sensorHTML='';
-    var sensorColorMatch=token.match(/\(<color=(#[0-9A-Fa-f]+)>([^<]+)<\/color>\)/);
+    var sensorColorMatch=parenPart.match(/\(<color=(#[0-9A-Fa-f]+)>([^<]+)<\/color>\)/);
     if(sensorColorMatch){
       var sc=colorMap[sensorColorMatch[1]]||sensorColorMatch[1];
       var sensorText=sensorColorMatch[2].replace(/\$[A-Z0-9_]+\|([^|]*)\|/g,'$1');
       sensorHTML='(<span style="color:'+sc+'">'+sensorText+'</span>)';
     } else {
-      var plainMatch=token.match(/\(([^)]+)\)/);
+      var plainMatch=parenPart.match(/\(([^)]+)\)/);
       if(plainMatch){
         var plainText=plainMatch[1].replace(/\$[A-Z0-9_]+\|([^|]*)\|/g,'$1');
         if(plainText) sensorHTML='('+plainText+')';
@@ -746,9 +771,9 @@ function parseCraftTemplate(ct){
    ============================================================ */
 function parseMissileLoad(cd){
   var loads=[];
-  var ml = child(cd,'MissileLoad');
-  if(ml){
-    children(ml,'MagSaveData').forEach(function(m){
+  var container = child(cd,'MissileLoad') || child(cd,'Load');
+  if(container){
+    children(container,'MagSaveData').forEach(function(m){
       loads.push({ key: txt(m,'MunitionKey'), qty: txt(m,'Quantity') });
     });
   }
@@ -1042,7 +1067,7 @@ function statGridHTML(statsObj){
 }
 
 function missileCardHTML(m){
-  var html = '<div class="tplc-hd"><span><span class="tpl-dg msl">'+esc(m.designation)+'</span> <span class="tpl-nn">'+esc(m.nickname)+'</span></span><span class="tpl-cost">'+esc(m.cost)+' pt</span></div>';
+  var html = '<div class="tplc-hd"><span><span class="tpl-dg msl">'+esc(m.designation)+'</span> <span class="tpl-nn">'+esc(m.nickname)+'</span></span><span class="tpl-cost">'+esc(m.cost)+' pts</span></div>';
   if(m.body) html += '<div class="tpl-body">'+esc(m.body)+'</div>';
   if(m.avionics) html += '<div class="tpl-avio">'+m.avionics+'</div>';
   if(m.modules && m.modules.length){
@@ -1102,7 +1127,7 @@ function craftCardHTML(c){
     : '<span class="tpl-dg craft">'+esc(c.primaryTail)+'</span>';
 
   return '<div class="tplc-icon">'+iconHtml+titleHtml+'</div>'
-    + '<div class="tplc-hd"><span class="tpl-body">'+esc(c.frameModel||c.frame)+'</span><span class="tpl-cost">'+esc(c.cost)+' pt</span></div>'
+    + '<div class="tplc-hd"><span class="tpl-body">'+esc(c.frameModel||c.frame)+'</span><span class="tpl-cost">'+esc(c.cost)+' pts</span></div>'
     + componentsHtml;
 }
 
